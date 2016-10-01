@@ -23,7 +23,10 @@ As such there are several concepts used here:
 - Turns are triggered by the next player playing a card. This triggers resets of pools.
 
 
-Feedback (to the steam workshop page) is welcome!
+Feedback to the steam workshop page is welcome!
+You can also raise an issue or pull request on github:
+https://github.com/azekeil/Tabletop-Simulator-Star-Realms-Natural-Scripting
+
 
 As always, please support White Wizard Games who created the original game:
 
