@@ -73,22 +73,23 @@ function onObjectDropped(player_color, dropped_object)
     local in_scrap_zone = scrap_zones_from_guid[zone_guid]
 
     -- Unplay played cards before removing the owner!
-    if cowner != nil and in_play[cowner][obj_guid] != nil and in_play_zone == nil
-            and in_scrap_zone == nil then
-        if in_play[cowner][obj_guid]['scrapped'] != nil then
-            print_d('Replaying Scrapped Card (so we can unplay it cleanly)')
-            RePlayScrappedCard(obj_guid, cowner)
+    if cowner != nil and in_play[cowner][obj_guid] != nil then
+        if in_play_zone == nil and in_scrap_zone == nil then
+            if in_play[cowner][obj_guid]['scrapped'] != nil then
+                print_d('Replaying Scrapped Card (so we can unplay it cleanly)')
+                RePlayScrappedCard(obj_guid, cowner)
+            end
+            print_d('Unplaying Card')
+            UnPlayCardGuid(obj_guid, cowner, remove)
         end
-        print_d('Unplaying Card')
-        UnPlayCardGuid(obj_guid, cowner, remove)
-    end
 
-    if in_scrap_zone != nil then
-        print_d('Card dropped in scrap/explorer zone')
-        -- We only process cards that were in play
-        if cowner != nil and in_play[cowner][obj_guid] != nil and in_play[cowner][obj_guid]['scrapped'] == nil then
-            print_d('Card was in play and not already scrapped; processing')
-            ScrapCard(obj_guid, cowner)
+        if in_scrap_zone != nil then
+            print_d('Card dropped in scrap/explorer zone')
+            -- We only process cards that were in play
+            if in_play[cowner][obj_guid]['scrapped'] == nil then
+                print_d('Card was in play and not already scrapped; processing')
+                ScrapCard(obj_guid, cowner)
+            end
         end
     end
 
@@ -113,13 +114,12 @@ function onObjectDropped(player_color, dropped_object)
                     print_d('UnScrapping '..in_play[cowner][obj_guid]['played'])
                     RePlayScrappedCard(obj_guid, cowner)
                 end
+                -- Card was already played but not scrapped - do nothing
             else
                 -- Let's set the turn then - this is done outside of PlayCard
                 -- function as we may use PlayCard for automation and don't want
                 -- it also changing the turn on us!
-                if turn != cowner then
-                    ChangeTurn(player_color)
-                end
+                ChangeTurn(player_color)
                 -- Play after setting owner!
                 PlayCard(dropped_object)
             end
