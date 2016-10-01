@@ -695,8 +695,7 @@ function PlayCard(obj)
                 print_d('Triggering all '..faction..' allies')
                 --print_r(in_play)
                 for other_guid, j in pairs(in_play[cowner]) do
-                    local ocard = getObjectFromGUID(other_guid)
-                    local oname = ocard.getVar('name')
+                    local oname = in_play[cowner][other_guid]['played']
                     if not in_play[cowner][other_guid][faction .. '_ally_triggered'] then
                         print_d('Processing ' .. oname)
                         ProcessCardTable(card[oname][faction .. '_ally'], cowner, add, add)
