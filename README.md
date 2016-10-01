@@ -11,7 +11,6 @@ v1.1:
     + Add graphics and snap points for player draw/discard piles
     + Moved the pool counters closer to the trade row
 
-
 This is in development! Currently only trade and combat pools have been scripted, and only the base game has been annotated (although the other cards are available and can be used, these won't be scripted)
 
 Upcoming improvements:
@@ -19,7 +18,6 @@ Upcoming improvements:
 - Tracking most non-trade, non-combat variables e.g. discards, draws, scraps etc
 - Annotating the rest of the card sets
 - Support for 6 (8?) players
-
 
 The premise was to make the user experience as much like the physical game as possible, automating the adding of pools and triggering of allies, without forcing the user to do things differently than they might do in the real world.
 
@@ -31,14 +29,9 @@ As such there are several concepts used here:
 
 
 Feedback to the steam workshop page is welcome!
-
 http://steamcommunity.com/sharedfiles/filedetails/?id=772422344
-
 You can also raise an issue or pull request on github:
-
 https://github.com/azekeil/Tabletop-Simulator-Star-Realms-Natural-Scripting
 
-
 As always, please support White Wizard Games who created the original game:
-
 http://www.starrealms.com/buy/
