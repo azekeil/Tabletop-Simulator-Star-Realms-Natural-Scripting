@@ -9,6 +9,7 @@ v1.1:
     + Handle in_play cards that are removed by grouping
     + Make explorers scrap properly
     + Add graphics and snap points for player draw/discard piles
+    + Moved the pool counters closer to the trade row
 
 
 This is in development! Currently only trade and combat pools have been scripted, and only the base game has been annotated (although the other cards are available and can be used, these won't be scripted)

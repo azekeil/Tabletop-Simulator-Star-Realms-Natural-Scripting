@@ -22,10 +22,10 @@ disown_zone_guids={
 disown_zones_from_guid = {}
 
 owned_zone_guids = {
-    White='4d5848',
-    Blue='b10362',
-    Red='cf8d1c',
-    Green='908c52'
+    White='01a7bd',
+    Blue='2ab544',
+    Red='e101d9',
+    Green='0852ac'
 }
 owned_zones_from_guid = {}
 
