@@ -2,8 +2,10 @@
 
 This is a scripted version of Star Realms with support for up to 4 players currently, built heavily on the existing Star Realms workshop releases - credit to steam users Aabra and Rari.
 
-Version 1.0
-- First public release!
+Version 1.1
+History:
+- v1.0: First public release!
+- v1.1: Handle in_play cards that are removed by grouping
 
 This is in development! Currently only trade and combat pools have been scripted, and only the base game has been annotated (although the other cards are available and can be used, these won't be scripted)
 
@@ -24,6 +26,7 @@ As such there are several concepts used here:
 
 
 Feedback to the steam workshop page is welcome!
+http://steamcommunity.com/sharedfiles/filedetails/?id=772422344
 You can also raise an issue or pull request on github:
 https://github.com/azekeil/Tabletop-Simulator-Star-Realms-Natural-Scripting
 
