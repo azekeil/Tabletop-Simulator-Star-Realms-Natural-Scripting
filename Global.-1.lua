@@ -1,6 +1,13 @@
 --[[
 This is a scripted version of Star Realms
 
+On Steam Workshop:
+http://steamcommunity.com/sharedfiles/filedetails/?id=772422344
+And on github:
+https://github.com/azekeil/Tabletop-Simulator-Star-Realms-Natural-Scripting
+
+Version 1.1
+
 Please see the Notebook for more information.
 --]]
 
@@ -640,6 +647,26 @@ function onObjectDropped(player_color, dropped_object)
     end
     --print_r(faction_counts)
     --RecalculatePools()
+end
+
+--[[
+This function handles when card objects are destroyed, which happens when
+one card is dropped on top of another card or deck of cards. When the deck
+is created the individual card objects are destroyed. Here we take them out
+of play if they were in play. This is to properly support the natural user
+desire to group the cards at the end of a turn to easily dispose of them.
+--]]
+function onObjectDestroyed(dying_object)
+    print_d(dying_object.getGUID()..' is being destroyed!')
+    local obj_guid = dying_object.getGUID()
+    for player, i in pairs(owned_zone_guids) do
+        if in_play[player][obj_guid] != nil then
+            if in_play[player][obj_guid]['scrapped'] == nil then
+                UnPlayCardGuid(obj_guid, player, remove)
+                return
+            end
+        end
+    end
 end
 
 function PlayCard(obj)
