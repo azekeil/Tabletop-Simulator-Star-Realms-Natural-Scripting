@@ -17,7 +17,6 @@ play_zone_guids={'41d774', '7f8b9c', 'eb0d4b', '3d0725'}
 play_zones_from_guid = {}
 
 disown_zone_guids={
-    explorer='5454ba',
     trade='7a543d'
 }
 disown_zones_from_guid = {}
@@ -30,7 +29,11 @@ owned_zone_guids = {
 }
 owned_zones_from_guid = {}
 
-scrap_zone_guid='950853'
+scrap_zone_guids={
+    scrap='950853',
+    explorer='5454ba'
+}
+scrap_zones_from_guid = {}
 
 all_zone_guids = {}
 
@@ -534,8 +537,12 @@ card = {
 ------
 
 function onLoad()
-    -- Objects instantiated here
-    table.insert(all_zone_guids, scrap_zone_guid)
+    -- Objects instantiated now
+    for i, v in pairs(scrap_zone_guids) do
+        scrap_zones_from_guid[v] = getObjectFromGUID(v)
+        table.insert(all_zone_guids, v)
+    end
+
 
     for i, v in pairs(disown_zone_guids) do
         disown_zones_from_guid[v] = getObjectFromGUID(v)
@@ -579,6 +586,7 @@ function onObjectDropped(player_color, dropped_object)
     -- We only care if it's a card - cards always have a name
     local cname = dropped_object.getVar('name')
     if cname == nil then return end
+
     print_d('Card dropped')
     local cowner = dropped_object.getVar('player')
 
@@ -588,13 +596,11 @@ function onObjectDropped(player_color, dropped_object)
     local in_player_owned_zone = owned_zones_from_guid[zone_guid]
     local in_disown_zone = disown_zones_from_guid[zone_guid]
     local in_play_zone = play_zones_from_guid[zone_guid]
-    local in_scrap_zone = false
-    if zone_guid == scrap_zone_guid then in_scrap_zone = true end
-    local in_explorer_zone = false
-    if in_disown_zone == 'explorer' then in_explorer_zone = true end
+    local in_scrap_zone = scrap_zones_from_guid[zone_guid]
 
     -- Unplay played cards before removing the owner!
-    if cowner != nil and in_play[cowner][obj_guid] != nil and in_play_zone == nil and not in_scrap_zone then
+    if cowner != nil and in_play[cowner][obj_guid] != nil and in_play_zone == nil
+            and in_scrap_zone == nil then
         if in_play[cowner][obj_guid]['scrapped'] != nil then
             print_d('Replaying Scrapped Card (so we can unplay it cleanly)')
             RePlayScrappedCard(obj_guid, cowner)
@@ -603,8 +609,8 @@ function onObjectDropped(player_color, dropped_object)
         UnPlayCardGuid(obj_guid, cowner, remove)
     end
 
-    if in_scrap_zone then
-        print_d('Card dropped in scrap zone')
+    if in_scrap_zone != nil then
+        print_d('Card dropped in scrap/explorer zone')
         -- We only process cards that were in play
         if cowner != nil and in_play[cowner][obj_guid] != nil and in_play[cowner][obj_guid]['scrapped'] == nil then
             print_d('Card was in play and not already scrapped; processing')
@@ -657,6 +663,10 @@ of play if they were in play. This is to properly support the natural user
 desire to group the cards at the end of a turn to easily dispose of them.
 --]]
 function onObjectDestroyed(dying_object)
+    -- For some reason when you change player colour, this function is called
+    -- with an object with no guid (perhaps it's a Player object that is being
+    -- destroyed?). Let's just ignore these..
+    if dying_object.getGUID() == nil then return end
     print_d(dying_object.getGUID()..' is being destroyed!')
     local obj_guid = dying_object.getGUID()
     for player, i in pairs(owned_zone_guids) do
