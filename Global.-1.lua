@@ -1,4 +1,4 @@
-aa--[[
+--[[
 This is a scripted version of Star Realms
 
 On Steam Workshop:
@@ -14,12 +14,17 @@ Please see the Notebook for more information.
 function onLoad()
     -- Objects instantiated now
     for i, v in pairs(scrap_zone_guids) do
-        scrap_zones_from_guid[v] = getObjectFromGUID(v)
+        scrap_zones_from_guid[v] = i
+        table.insert(all_zone_guids, v)
+    end
+
+    for i, v in ipairs(buy_zone_guids) do
+        buy_zones_from_guid[v] = true
         table.insert(all_zone_guids, v)
     end
 
     for i, v in pairs(disown_zone_guids) do
-        disown_zones_from_guid[v] = getObjectFromGUID(v)
+        disown_zones_from_guid[v] = i
         table.insert(all_zone_guids, v)
     end
 
@@ -29,7 +34,10 @@ function onLoad()
 
         in_play[i] = {}
 
-        status[i] = {}
+        status[i] = {
+            spent = 0,
+            bought = {}
+        }
 
         authority[i] = getObjectFromGUID(authority_guids[i])
         text_obj[i] = getObjectFromGUID(text_guids[i])
@@ -55,6 +63,24 @@ function onLoad()
 end
 
 --[[
+This routine is just to manage buying things from the trade row
+--]]
+function onObjectPickedUp(player_color, picked_up_object)
+    -- We only care if it's a card - cards always have a name
+    local cname = picked_up_object.getVar('name')
+    if cname == nil then return end
+
+    -- We also only care if it's a card in the trade or explorer zones
+    local obj_guid = picked_up_object.getGUID()
+    local zone_guid = FindZoneObjectIsIn(obj_guid)
+    if disown_zones_from_guid[zone_guid] != 'trade' and scrap_zones_from_guid[zone_guid] != 'explorer' then return end
+
+    BuyCard(obj_guid, player_color, card[cname]['cost'])
+    -- Only update the statustext if it's that player's turn
+    if turn == player_color then UpdateStatusText(player_color) end
+end
+
+--[[
 This is the main routine - it triggers when an object is dropped.
 It does three main things:
 1) Determine the zone the card was dropped in
@@ -76,6 +102,7 @@ function onObjectDropped(player_color, dropped_object)
     local in_disown_zone = disown_zones_from_guid[zone_guid]
     local in_play_zone = play_zones_from_guid[zone_guid]
     local in_scrap_zone = scrap_zones_from_guid[zone_guid]
+    local in_buy_zone = buy_zones_from_guid[zone_guid]
 
     -- Unplay played cards before removing the owner!
     if cowner != nil and in_play[cowner][obj_guid] != nil then
@@ -102,9 +129,20 @@ function onObjectDropped(player_color, dropped_object)
     if in_player_owned_zone != nil then
         print_d('Setting owner of ' .. obj_guid .. ' to ' .. in_player_owned_zone)
         dropped_object.setVar('player', in_player_owned_zone)
+        UpdateStatusText(player_color)
+    elseif in_buy_zone != nil then
+        print_d('Dropped in buy zone!')
+        if dropped_object.getVar('player') == nil then
+            print_d('Setting owner of ' .. obj_guid .. ' to ' .. player_color)
+            dropped_object.setVar('player', player_color)
+        end
+        MoveToDiscard(dropped_object, player_color)
     elseif in_disown_zone != nil then
         print_d('Setting owner of ' .. obj_guid .. ' to nil')
         dropped_object.setVar('player', nil)
+        UnBuyCard(obj_guid, player_color)
+        -- Only update the statustext if it's that player's turn
+        if turn == player_color then UpdateStatusText(player_color) end
     else
         if dropped_object.getVar('player') == nil then
             print_d('Setting owner of ' .. obj_guid .. ' to ' .. player_color)
@@ -127,10 +165,10 @@ function onObjectDropped(player_color, dropped_object)
                 ChangeTurn(player_color)
                 -- Play after setting owner!
                 PlayCard(dropped_object)
+                UpdateStatusText(player_color)
             end
         end
     end
-    GenerateText(text_obj[player_color], player_color)
     --print_r(faction_counts)
     --RecalculatePools()
 end
@@ -318,6 +356,11 @@ function ChangeTurn(player)
                 end
             end
         end
+        -- Reset the statuses
+        status[turn] = {
+            spent = 0,
+            bought = {}
+        }
         -- Blank the old status (with a single space)
         text_obj[turn].TextTool.setValue(' ')
     end
@@ -326,15 +369,30 @@ function ChangeTurn(player)
     print_r(faction_counts)
 end
 
-function GenerateText(obj, player)
-    if obj == nil or player == nil then return end
-
+function UpdateStatusText(player)
+    if player == nil then return end
     local trade = pool['trade'][player].getValue()
-    local spent = status[player][spent]
-    if spent == nil then spent = 0 end
-    local text = trade - spent..'/'..trade..' trade\n'
-    text = text .. pool['combat'][player].getValue()..' combat' --\n'
-    obj.TextTool.setValue(text)
+    local text = trade - status[player]['spent']..'/'..trade..' trade\n'
+    text = text .. pool['combat'][player].getValue()..' combat\n'
+    text_obj[player].TextTool.setValue(text)
+end
+
+function MoveToDiscard(obj, player)
+    if obj == nil or player != obj.getVar('player') then return end
+    obj.setRotationSmooth(discard_pos['rotation'][player], false, false)
+    obj.setPositionSmooth(discard_pos['position'][player], false, false)
+end
+
+function BuyCard(obj_guid, player, amount)
+    if obj_guid == nil or status[player]['bought'][obj_guid] != nil then return end
+    status[player]['spent'] = status[player]['spent'] + amount
+    status[player]['bought'][obj_guid] = amount
+end
+
+function UnBuyCard(obj_guid, player)
+    if obj_guid == nil or status[player]['bought'][obj_guid] == nil then return end
+    status[player]['spent'] = status[player]['spent'] - status[player]['bought'][obj_guid]
+    status[player]['bought'][obj_guid] = nil
 end
 
 function isObjectInZone(object_guid, zone_guid)
@@ -361,7 +419,10 @@ function print_d ( t )
 end
 
 function print_r ( t )
-    --[[
+    --print_r2(t)
+end
+
+function print_r2 ( t )
     local print_r_cache={}
     local function sub_print_r(t,indent)
         if (print_r_cache[tostring(t)]) then
@@ -393,12 +454,11 @@ function print_r ( t )
         sub_print_r(t,"  ")
     end
     print()
-    --]]
 end
 
 -- ZONES --
 
-play_zone_guids={'41d774', '7f8b9c', 'eb0d4b', '3d0725'}
+play_zone_guids={'3d0725', '7f8b9c', 'cbfb3a', 'bb862c'}
 play_zones_from_guid = {}
 
 disown_zone_guids={
@@ -414,11 +474,14 @@ owned_zone_guids = {
 }
 owned_zones_from_guid = {}
 
-scrap_zone_guids={
+scrap_zone_guids = {
     scrap='950853',
     explorer='5454ba'
 }
 scrap_zones_from_guid = {}
+
+buy_zone_guids = {'9cae45', 'cfe001'}
+buy_zones_from_guid = {}
 
 all_zone_guids = {}
 
@@ -457,6 +520,22 @@ text_guids = {
 }
 text_obj = {}
 
+-- POSITIONS --
+
+discard_pos = {
+    position = {
+        White = {27.7580966949463, 2.0415952205658, -22.364372253418},
+        Blue = {27.5576362609863,2.02753210067749,22.1673812866211},
+        Red = {-27.6587677001953,2.03530836105347,-22.2438640594482},
+        Green = {-27.6822872161865,2.02753210067749,22.6238460540771}
+    },
+    rotation = {
+        White = {0, 180, 0},
+        Blue = {0, 0, 0},
+        Red = {0, 180, 0},
+        Green = {0, 0, 0}
+    }
+}
 -- STATUS --
 
 in_play = {}
