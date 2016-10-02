@@ -6,7 +6,7 @@ http://steamcommunity.com/sharedfiles/filedetails/?id=772422344
 And on github:
 https://github.com/azekeil/Tabletop-Simulator-Star-Realms-Natural-Scripting
 
-Version 1.2
+Version 1.3
 
 Please see the Notebook for more information.
 --]]
@@ -40,6 +40,16 @@ function onLoad()
         }
 
         authority[i] = getObjectFromGUID(authority_guids[i])
+        authority[i].createButton({
+            click_function='MoveAllToDiscards',
+            function_owner=nil,
+            label='Tidy Up',
+            position={1,0.2,-2},
+            rotation={0,0,-180},
+            width=500,
+            height=200
+        })
+        authority_player_from_guids[authority_guids[i]] = i
         text_obj[i] = getObjectFromGUID(text_guids[i])
 
         faction_counts[i] = {}
@@ -58,6 +68,21 @@ function onLoad()
         pool[i] = {}
         for j, w in pairs(v) do
             pool[i][j] = getObjectFromGUID(w)
+        end
+    end
+end
+
+function MoveAllToDiscards(obj)
+    local player = authority_player_from_guids[obj.getGUID()]
+    print_d(player..' tidy up button pressed')
+    -- Reset them
+    ResetPlayer(player)
+    -- Now move all their non-base, non-scrapped cards in play
+    local offset=0
+    for card_guid, j in pairs(in_play[player]) do
+        if j['scrapped'] == nil and card[j['played']]['base'] == nil then
+            MoveToDiscard(getObjectFromGUID(card_guid), player, offset)
+            offset = offset + 0.1
         end
     end
 end
@@ -148,7 +173,7 @@ function onObjectDropped(player_color, dropped_object)
             -- discards. If not we treat the buy zone like the rest of the
             -- play zone
             if status[player_color]['bought'][obj_guid] != nil then
-                MoveToDiscard(dropped_object, player_color)
+                MoveToDiscard(dropped_object, player_color, 0)
             else--
                 in_play_zone = true
             end
@@ -340,6 +365,29 @@ function ProcessCardTable(table, player, pool_change, faction_change)
     end
 end
 
+function ResetPlayer(player)
+    for card_guid, i in pairs(in_play[player]) do
+        local cname = i['played']
+        if i['scrapped'] != nil then
+            -- Now unplay the card
+            RePlayScrappedCard(card_guid, player)
+            UnPlayCardGuid(card_guid, player, remove)
+        else
+            -- For non-scrapped cards still in play, just get rid of the 'permanent' triggers
+            for j, faction in ipairs(factions) do
+                i[faction..'_ally_permanently_triggered'] = nil
+            end
+        end
+    end
+    -- Reset the statuses
+    status[turn] = {
+        spent = 0,
+        bought = {}
+    }
+    -- Blank the old status (with a single space)
+    text_obj[turn].TextTool.setValue(' ')
+end
+
 function ChangeTurn(player)
     -- Don't do any resetting if there was no previous player (i.e. start of the game)
     print_r(faction_counts)
@@ -348,26 +396,7 @@ function ChangeTurn(player)
     print_r(in_play)
     if turn != nil and in_play[turn] != nil then
         -- Reset the current player
-        for card_guid, i in pairs(in_play[turn]) do
-            local cname = in_play[turn][card_guid]['played']
-            if in_play[turn][card_guid]['scrapped'] != nil then
-                -- Now unplay the card
-                RePlayScrappedCard(card_guid, turn)
-                UnPlayCardGuid(card_guid, turn, remove)
-            else
-                -- For non-scrapped cards still in play, just get rid of the 'permanent' triggers
-                for i, faction in ipairs(factions) do
-                    in_play[turn][card_guid][faction..'_ally_permanently_triggered'] = nil
-                end
-            end
-        end
-        -- Reset the statuses
-        status[turn] = {
-            spent = 0,
-            bought = {}
-        }
-        -- Blank the old status (with a single space)
-        text_obj[turn].TextTool.setValue(' ')
+        ResetPlayer(turn)
     end
     -- Finally set the turn to the new player
     turn = player
@@ -382,10 +411,12 @@ function UpdateStatusText(player)
     text_obj[player].TextTool.setValue(text)
 end
 
-function MoveToDiscard(obj, player)
-    if obj == nil or player != obj.getVar('player') then return end
+function MoveToDiscard(obj, player, yoffset)
+    if obj == nil or player != obj.getVar('player') or yoffset == nil then return end
+    local pos = discard_pos['position'][player]
+    pos[2] = pos[2] + yoffset
     obj.setRotationSmooth(discard_pos['rotation'][player], false, false)
-    obj.setPositionSmooth(discard_pos['position'][player], false, false)
+    obj.setPositionSmooth(pos, false, false)
 end
 
 function BuyCard(obj_guid, player, amount)
@@ -515,6 +546,7 @@ authority_guids = {
     Red='1695b7',
     Green='9df816'
 }
+authority_player_from_guids = {}
 authority = {}
 
 text_guids = {
