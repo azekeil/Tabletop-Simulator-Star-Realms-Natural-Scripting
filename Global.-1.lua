@@ -85,8 +85,6 @@ function MoveAllToDiscards(obj)
             offset = offset + 0.1
         end
     end
-    print_r2(in_play)
-    print_r2(status)
 end
 
 --[[
