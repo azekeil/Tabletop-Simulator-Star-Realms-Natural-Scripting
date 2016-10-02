@@ -34,11 +34,6 @@ function onLoad()
 
         in_play[i] = {}
 
-        status[i] = {
-            spent = 0,
-            bought = {}
-        }
-
         authority[i] = getObjectFromGUID(authority_guids[i])
         authority[i].createButton({
             click_function='MoveAllToDiscards',
@@ -52,6 +47,9 @@ function onLoad()
         authority_player_from_guids[authority_guids[i]] = i
         text_obj[i] = getObjectFromGUID(text_guids[i])
 
+        -- Now that stuff has been populated, initialise status.
+        ResetPlayer(i)
+
         faction_counts[i] = {}
         for j, faction in ipairs(factions) do
             faction_counts[i][faction] = 0
@@ -62,13 +60,6 @@ function onLoad()
     for i, v in ipairs(play_zone_guids) do
         play_zones_from_guid[v] = true
         table.insert(all_zone_guids, v)
-    end
-
-    for i, v in pairs(pool_counter_guids) do
-        pool[i] = {}
-        for j, w in pairs(v) do
-            pool[i][j] = getObjectFromGUID(w)
-        end
     end
 end
 
@@ -358,11 +349,11 @@ function ProcessCardTable(table, player, pool_change, faction_change)
         end
     end
 
-    -- Process combat and trade pools
-    for i, v in pairs(pool_counter_guids) do
-        local val = table[i]
+    -- Process pools
+    for i, v in pairs(pool_list) do
+        local val = table[v]
         if val != nil then
-            pool[i][player].setValue(pool[i][player].getValue() + val * pool_change)
+            status[player][v] = status[player][v] + val * pool_change
         end
     end
 end
@@ -382,12 +373,17 @@ function ResetPlayer(player)
         end
     end
     -- Reset the statuses
-    status[turn] = {
+    status[player] = {
         spent = 0,
         bought = {}
     }
+
+    for i, p in ipairs(pool_list) do
+        status[player][p] = 0
+    end
+
     -- Blank the old status (with a single space)
-    text_obj[turn].TextTool.setValue(' ')
+    text_obj[player].TextTool.setValue(' ')
 end
 
 function ChangeTurn(player)
@@ -407,9 +403,10 @@ end
 
 function UpdateStatusText(player)
     if player == nil then return end
-    local trade = pool['trade'][player].getValue()
+    local trade = status[player]['trade']
     local text = trade - status[player]['spent']..'/'..trade..' trade\n'
-    text = text .. pool['combat'][player].getValue()..' combat\n'
+    text = text .. status[player]['combat']..' combat\n'
+    text = text .. status[player]['authority']..' authority\n'
     text_obj[player].TextTool.setValue(text)
 end
 
@@ -523,25 +520,8 @@ buy_zones_from_guid = {}
 
 all_zone_guids = {}
 
--- COUNTERS --
-
-pool_counter_guids = {
-    trade = {
-        White='52a23f',
-        Blue='e80226',
-        Red='e8f88e',
-        Green='bd4473'
-    },
-    combat = {
-        White='22e73a',
-        Blue='3ea4f6',
-        Red='df3603',
-        Green='e58091'
-    }
-}
-pool = {}
-
 -- OBJECTS --
+
 authority_guids = {
     White='7a4bdb',
     Blue='29dba5',
@@ -576,6 +556,8 @@ discard_pos = {
     }
 }
 -- STATUS --
+
+pool_list = {'trade', 'combat', 'authority'}
 
 in_play = {}
 faction_counts = {}
