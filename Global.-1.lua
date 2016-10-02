@@ -48,7 +48,8 @@ function onLoad()
         text_obj[i] = getObjectFromGUID(text_guids[i])
 
         -- Now that stuff has been populated, initialise status.
-        ResetPlayer(i)
+        status[i] = {}
+        ResetPlayer(i, true)
 
         faction_counts[i] = {}
         for j, faction in ipairs(factions) do
@@ -67,7 +68,7 @@ function MoveAllToDiscards(obj)
     local player = authority_player_from_guids[obj.getGUID()]
     print_d(player..' tidy up button pressed')
     -- Reset them
-    ResetPlayer(player)
+    ResetPlayer(player, false)
     -- Now move all their non-base, non-scrapped cards in play
     local offset=0
     for card_guid, j in pairs(in_play[player]) do
@@ -214,6 +215,7 @@ function onObjectDestroyed(dying_object)
         if in_play[player][obj_guid] != nil then
             if in_play[player][obj_guid]['scrapped'] == nil then
                 UnPlayCardGuid(obj_guid, player, remove)
+                UpdateStatusText(player)
                 return
             end
         end
@@ -358,7 +360,7 @@ function ProcessCardTable(table, player, pool_change, faction_change)
     end
 end
 
-function ResetPlayer(player)
+function ResetPlayer(player, reset_pools)
     for card_guid, i in pairs(in_play[player]) do
         local cname = i['played']
         if i['scrapped'] != nil then
@@ -373,13 +375,13 @@ function ResetPlayer(player)
         end
     end
     -- Reset the statuses
-    status[player] = {
-        spent = 0,
-        bought = {}
-    }
+    status[player]['spent'] = 0
+    status[player]['bought'] = {}
 
-    for i, p in ipairs(pool_list) do
-        status[player][p] = 0
+    if reset_pools then
+        for i, p in ipairs(pool_list) do
+            status[player][p] = 0
+        end
     end
 
     -- Blank the old status (with a single space)
@@ -394,7 +396,7 @@ function ChangeTurn(player)
     print_r(in_play)
     if turn != nil and in_play[turn] != nil then
         -- Reset the current player
-        ResetPlayer(turn)
+        ResetPlayer(turn, true)
     end
     -- Finally set the turn to the new player
     turn = player
