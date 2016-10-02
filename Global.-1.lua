@@ -85,6 +85,8 @@ function MoveAllToDiscards(obj)
             offset = offset + 0.1
         end
     end
+    print_r2(in_play)
+    print_r2(status)
 end
 
 --[[
@@ -138,6 +140,7 @@ function onObjectDropped(player_color, dropped_object)
             end
             print_d('Unplaying Card')
             UnPlayCardGuid(obj_guid, cowner, remove)
+            UpdateStatusText(player_color)
         end
 
         if in_scrap_zone != nil then
@@ -146,6 +149,7 @@ function onObjectDropped(player_color, dropped_object)
             if in_play[cowner][obj_guid]['scrapped'] == nil then
                 print_d('Card was in play and not already scrapped; processing')
                 ScrapCard(obj_guid, cowner)
+                UpdateStatusText(player_color)
             end
         end
     end
@@ -243,11 +247,11 @@ function PlayCard(obj)
             print_d('Triggering all '..faction..' allies')
             --print_r(in_play)
             for other_guid, j in pairs(in_play[cowner]) do
-                local oname = in_play[cowner][other_guid]['played']
-                if not in_play[cowner][other_guid][faction .. '_ally_triggered'] then
+                local oname = j['played']
+                if not j[faction .. '_ally_triggered'] then
                     print_d('Processing ' .. oname)
                     ProcessCardTable(card[oname][faction .. '_ally'], cowner, add, add)
-                    in_play[cowner][other_guid][faction .. '_ally_triggered'] = true
+                    j[faction .. '_ally_triggered'] = true
                 end
             end
         end
@@ -276,10 +280,10 @@ function UnPlayCardGuid(obj_guid, cowner, faction_change)
             if faction_counts[cowner][faction] < 2 then
                 -- untrigger all ally abilities on all cards that don't already have it
                 for other_guid, j in pairs(in_play[cowner]) do
-                    local oname = in_play[cowner][other_guid]['played']
-                    if in_play[cowner][other_guid][faction_ally_triggered] and in_play[cowner][other_guid][faction..'_ally_permanently_triggered'] == nil then
+                    local oname = j['played']
+                    if j[faction_ally_triggered] and j[faction..'_ally_permanently_triggered'] == nil then
                         ProcessCardTable(card[oname][faction .. '_ally'], cowner, remove, faction_change)
-                        in_play[cowner][other_guid][faction_ally_triggered] = nil
+                        j[faction_ally_triggered] = nil
                     end
                 end
             end
@@ -300,9 +304,9 @@ function ScrapCard(obj_guid, cowner)
         in_play[cowner][obj_guid]['allies_permanently_triggered'][faction] = {}
         if card[cname][faction] != nil then
             for other_guid, j in pairs(in_play[cowner]) do
-                if in_play[cowner][other_guid][faction .. '_ally_triggered'] then
-                    in_play[cowner][other_guid][faction .. '_ally_permanently_triggered'] = true
-                    table.insert(in_play[cowner][obj_guid]['allies_permanently_triggered'][faction], other_guid)
+                if j[faction .. '_ally_triggered'] then
+                    j[faction .. '_ally_permanently_triggered'] = true
+                    table.insert(j['allies_permanently_triggered'][faction], other_guid)
                 end
             end
         end
