@@ -2,14 +2,16 @@
 
 This is a scripted version of Star Realms with support for up to 4 players currently, built heavily on the existing Star Realms workshop releases - credit to steam users Aabra and Rari.
 
-Version 1.1  
+Version 1.2  
 History:  
 v1.0: First public release!  
 v1.1:  
     + Handle in_play cards that are removed by grouping  
     + Make explorers scrap properly  
     + Add graphics and snap points for player draw/discard piles  
-
+v1.2:  
+    + Added status fields for each player (will probably deprecate the coloured counters)  
+    + Added 'Buy' drop zones that move bought cards to the player's discard pile  
 
 This is in development! Currently only trade and combat pools have been scripted, and only the base game has been annotated (although the other cards are available and can be used, these won't be scripted)
 
