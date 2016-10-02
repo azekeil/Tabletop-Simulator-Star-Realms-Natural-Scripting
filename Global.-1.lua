@@ -130,13 +130,6 @@ function onObjectDropped(player_color, dropped_object)
         print_d('Setting owner of ' .. obj_guid .. ' to ' .. in_player_owned_zone)
         dropped_object.setVar('player', in_player_owned_zone)
         UpdateStatusText(player_color)
-    elseif in_buy_zone != nil then
-        print_d('Dropped in buy zone!')
-        if dropped_object.getVar('player') == nil then
-            print_d('Setting owner of ' .. obj_guid .. ' to ' .. player_color)
-            dropped_object.setVar('player', player_color)
-        end
-        MoveToDiscard(dropped_object, player_color)
     elseif in_disown_zone != nil then
         print_d('Setting owner of ' .. obj_guid .. ' to nil')
         dropped_object.setVar('player', nil)
@@ -147,6 +140,18 @@ function onObjectDropped(player_color, dropped_object)
         if dropped_object.getVar('player') == nil then
             print_d('Setting owner of ' .. obj_guid .. ' to ' .. player_color)
             dropped_object.setVar('player', player_color)
+        end
+
+        if in_buy_zone != nil then
+            print_d('Dropped in buy zone!')
+            -- If the card was bought (this turn) then it is moved to the
+            -- discards. If not we treat the buy zone like the rest of the
+            -- play zone
+            if status[player_color]['bought'][obj_guid] != nil then
+                MoveToDiscard(dropped_object, player_color)
+            else--
+                in_play_zone = true
+            end
         end
         -- Put this at the end of the if/else to make the other zones take precedence
         -- because cards physically overlap zones :(
