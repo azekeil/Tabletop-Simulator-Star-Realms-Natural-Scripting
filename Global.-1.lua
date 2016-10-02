@@ -1,4 +1,4 @@
---[[
+aa--[[
 This is a scripted version of Star Realms
 
 On Steam Workshop:
@@ -28,6 +28,11 @@ function onLoad()
         table.insert(all_zone_guids, v)
 
         in_play[i] = {}
+
+        status[i] = {}
+
+        authority[i] = getObjectFromGUID(authority_guids[i])
+        text_obj[i] = getObjectFromGUID(text_guids[i])
 
         faction_counts[i] = {}
         for j, faction in ipairs(factions) do
@@ -125,6 +130,7 @@ function onObjectDropped(player_color, dropped_object)
             end
         end
     end
+    GenerateText(text_obj[player_color], player_color)
     --print_r(faction_counts)
     --RecalculatePools()
 end
@@ -312,10 +318,23 @@ function ChangeTurn(player)
                 end
             end
         end
+        -- Blank the old status (with a single space)
+        text_obj[turn].TextTool.setValue(' ')
     end
     -- Finally set the turn to the new player
     turn = player
     print_r(faction_counts)
+end
+
+function GenerateText(obj, player)
+    if obj == nil or player == nil then return end
+
+    local trade = pool['trade'][player].getValue()
+    local spent = status[player][spent]
+    if spent == nil then spent = 0 end
+    local text = trade - spent..'/'..trade..' trade\n'
+    text = text .. pool['combat'][player].getValue()..' combat' --\n'
+    obj.TextTool.setValue(text)
 end
 
 function isObjectInZone(object_guid, zone_guid)
@@ -421,10 +440,28 @@ pool_counter_guids = {
 }
 pool = {}
 
+-- OBJECTS --
+authority_guids = {
+    White='7a4bdb',
+    Blue='29dba5',
+    Red='1695b7',
+    Green='9df816'
+}
+authority = {}
+
+text_guids = {
+    White='8997dd',
+    Blue='92567a',
+    Red='e04549',
+    Green='295e52'
+}
+text_obj = {}
+
 -- STATUS --
 
 in_play = {}
 faction_counts = {}
+status = {}
 turn = ''
 
 -- GLOBALS --
