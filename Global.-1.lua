@@ -297,7 +297,7 @@ function ScrapCard(obj_guid, cowner)
             for other_guid, j in pairs(in_play[cowner]) do
                 if j[faction .. '_ally_triggered'] then
                     j[faction .. '_ally_permanently_triggered'] = true
-                    table.insert(j['allies_permanently_triggered'][faction], other_guid)
+                    table.insert(in_play[cowner][obj_guid]['allies_permanently_triggered'][faction], other_guid)
                 end
             end
         end
@@ -405,10 +405,15 @@ end
 
 function UpdateStatusText(player)
     if player == nil then return end
-    local trade = status[player]['trade']
-    local text = trade - status[player]['spent']..'/'..trade..' trade\n'
-    text = text .. status[player]['combat']..' combat\n'
-    text = text .. status[player]['authority']..' authority\n'
+    local p = status[player]
+    local text = p['trade'] - p['spent']..'/'..p['trade']..' trade\n'
+    text = text..p['combat']..' combat\n'
+    if p['authority'] != 0 then text=text..p['authority']..' authority\n' end
+    if p['draw_card'] != 0 then text=text..'Draw '..p['draw_card']..' card(s)\n' end
+    if p['opponent_discard_card'] != 0 then text=text..'Opponent discards '..p['opponent_discard_card']..' card(s)\n' end
+    if p['scrap_card_in_hand_or_discard'] != 0 then text=text..'Scrap '..p['scrap_card_in_hand_or_discard']..' card(s) in hand or discard\n' end
+    if p['scrap_card_in_trade_row'] != 0 then text=text..'Scrap '..p['scrap_card_in_trade_row']..' card(s) in trade row\n' end
+    if p['destroy_base'] != 0 then text=text..'Destroy '..p['destroy_base']..' base(s)\n' end
     text_obj[player].TextTool.setValue(text)
 end
 
@@ -559,7 +564,9 @@ discard_pos = {
 }
 -- STATUS --
 
-pool_list = {'trade', 'combat', 'authority'}
+pool_list = {'trade', 'combat', 'authority', 'draw_card',
+             'opponent_discard_card', 'scrap_card_in_hand_or_discard',
+             'scrap_card_in_trade_row', 'destroy_base'}
 
 in_play = {}
 faction_counts = {}
