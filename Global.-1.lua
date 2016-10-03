@@ -84,8 +84,8 @@ This routine is just to manage buying things from the trade row
 --]]
 function onObjectPickedUp(player_color, picked_up_object)
     -- We only care if it's a card - cards always have a name
-    local cname = picked_up_object.getVar('name')
-    if cname == nil then return end
+    local cname = picked_up_object.getName()
+    if card[cname] == nil then return end
 
     -- We also only care if it's a card in the trade or explorer zones
     local obj_guid = picked_up_object.getGUID()
@@ -106,8 +106,8 @@ It does three main things:
 --]]
 function onObjectDropped(player_color, dropped_object)
     -- We only care if it's a card - cards always have a name
-    local cname = dropped_object.getVar('name')
-    if cname == nil then return end
+    local cname = dropped_object.getName()
+    if card[cname] == nil then return end
 
     print_d('Card dropped')
     local cowner = dropped_object.getVar('player')
@@ -224,9 +224,9 @@ end
 
 function PlayCard(obj)
     local obj_guid = obj.getGUID()
-    local cname = obj.getVar('name')
+    local cname = obj.getName()
     local cowner = obj.getVar('player')
-    if cname == nil or cowner == nil then return end
+    if card[cname] == nil or cowner == nil then return end
     print_d('Playing ' .. cname .. ' for ' .. cowner)
     in_play[cowner][obj_guid] = { ['played'] = cname }
     -- Process basic effects
