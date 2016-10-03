@@ -80,6 +80,41 @@ function MoveAllToDiscards(obj)
 end
 
 --[[
+This function works out if cards have similar x and z coordinates - i.e. a
+player has dropped one card pretty much on top of another.
+--]]
+function areCardsinSameVicinity(card1, card2)
+    local c1p = card1.getPosition()
+    local c2p = card2.getPosition()
+    if math.abs(c1p.x - c2p.x) < 3 and math.abs(c1p.z - c2p.z) < 4 then
+        return true
+    else
+        return false
+    end
+end
+
+function RunAnyCardRoutines(obj_with_routine, dropped_object)
+    local rguid = obj_with_routine.getGUID()
+    local dguid = dropped_object.getGUID()
+
+    action = {
+        ['acquire_ship_for_free_to_top_of_deck'] = function (x) print('acquire_ship_for_free_to_top_of_deck') end,
+        ['clone_ship'] = function (x) print('clone_ship') end,
+        ['next_ship_to_top_of_deck'] = function (x) print('next_ship_to_top_of_deck') end
+    }
+
+    local cname = obj_with_routine.getName()
+    local cowner = obj_with_routine.getVar('player')
+    for i,f in pairs(action) do
+        if card[cname][i] then action[i]() end
+        for j, faction in ipairs(factions) do
+            if faction_counts[cowner][faction] > 1 and card[cname][faction..'_ally'][i] then
+                action[i]()
+            end
+        end
+    end
+end
+--[[
 This routine is just to manage buying things from the trade row
 --]]
 function onObjectPickedUp(player_color, picked_up_object)
@@ -99,10 +134,11 @@ end
 
 --[[
 This is the main routine - it triggers when an object is dropped.
-It does three main things:
-1) Determine the zone the card was dropped in
-2) Set ownership on card
-3) Take appropriate action (play/unplay/scrap etc) by manipulating state tables.
+It does four main things:
+1) Figure out if we're being dropped on another card, if so check for effects
+2) Determine the zone the card was dropped in
+3) Set ownership on card
+4) Take appropriate action (play/unplay/scrap etc) by manipulating state tables.
 --]]
 function onObjectDropped(player_color, dropped_object)
     -- We only care if it's a card - cards always have a name
@@ -111,9 +147,17 @@ function onObjectDropped(player_color, dropped_object)
 
     print_d('Card dropped')
     local cowner = dropped_object.getVar('player')
+    local obj_guid = dropped_object.getGUID()
+
+    -- See if we're being dropped on top of another card in play by this player
+    for guid, tbl in pairs(in_play[player_color]) do
+        local ocard = getObjectFromGUID(guid)
+        if guid != obj_guid and areCardsinSameVicinity(ocard, dropped_object) then
+            RunAnyCardRoutines(ocard, dropped_object)
+        end
+    end
 
     -- Figure out which zone the object was dropped in
-    local obj_guid = dropped_object.getGUID()
     local zone_guid = FindZoneObjectIsIn(obj_guid)
     local in_player_owned_zone = owned_zones_from_guid[zone_guid]
     local in_disown_zone = disown_zones_from_guid[zone_guid]
