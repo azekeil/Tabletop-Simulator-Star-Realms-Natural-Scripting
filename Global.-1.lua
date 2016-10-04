@@ -6,7 +6,7 @@ http://steamcommunity.com/sharedfiles/filedetails/?id=772422344
 And on github:
 https://github.com/azekeil/Tabletop-Simulator-Star-Realms-Natural-Scripting
 
-Version 1.3
+Version 1.4
 
 Please see the Notebook for more information.
 --]]
@@ -93,26 +93,51 @@ function areCardsinSameVicinity(card1, card2)
     end
 end
 
-function RunAnyCardRoutines(obj_with_routine, dropped_object)
-    local rguid = obj_with_routine.getGUID()
+function RunAnyCardRoutines(receiving_obj, dropped_object)
+    local rguid = receiving_obj.getGUID()
     local dguid = dropped_object.getGUID()
+    local cowner = receiving_obj.getVar('player')
+    local rname = receiving_obj.getName()
+    local dname = dropped_object.getName()
 
-    action = {
-        ['acquire_ship_for_free_to_top_of_deck'] = function (x) print('acquire_ship_for_free_to_top_of_deck') end,
-        ['clone_ship'] = function (x) print('clone_ship') end,
-        ['next_ship_to_top_of_deck'] = function (x) print('next_ship_to_top_of_deck') end
+    action_r = {
+        ['acquire_ship_for_free_to_top_of_deck'] = function (x)
+            print_d('acquire_ship_for_free_to_top_of_deck ')
+            print_d(cowner)
+            print_r(status[cowner])
+            if status[cowner]['bought'][dguid] != nil then
+                status[cowner]['spent'] = status[cowner]['spent'] - status[cowner]['bought'][dguid]
+                status[cowner]['bought'][dguid] = 0
+                UpdateStatusText(cowner)
+                MoveToDeck(dropped_object, cowner, 0)
+            end
+        end,
+        ['next_ship_to_top_of_deck'] = function (x)
+            print('next_ship_to_top_of_deck ')
+        end
     }
 
-    local cname = obj_with_routine.getName()
-    local cowner = obj_with_routine.getVar('player')
-    for i,f in pairs(action) do
-        if card[cname][i] then action[i]() end
+    action_d = {
+        ['clone_ship'] = function (x) print('clone_ship ') end
+    }
+
+    for i,f in pairs(action_r) do
+        if card[rname][i] then action_r[i]() end
         for j, faction in ipairs(factions) do
-            if faction_counts[cowner][faction] > 1 and card[cname][faction..'_ally'][i] then
-                action[i]()
+            if faction_counts[cowner][faction] > 1 then
+                if card[rname][faction..'_ally'] != nil and card[rname][faction..'_ally'][i] then action_r[i]() end
             end
         end
     end
+    for i,f in pairs(action_d) do
+        if card[dname][i] then action_d[i]() end
+        for j, faction in ipairs(factions) do
+            if faction_counts[cowner][faction] > 1 then
+                if card[dname][faction..'_ally'] != nil and card[dname][faction..'_ally'][i] then action_d[i]() end
+            end
+        end
+    end
+
 end
 --[[
 This routine is just to manage buying things from the trade row
@@ -469,6 +494,16 @@ function MoveToDiscard(obj, player, yoffset)
     obj.setPositionSmooth(pos, false, false)
 end
 
+function MoveToDeck(obj, player, yoffset)
+    if obj == nil or player != obj.getVar('player') or yoffset == nil then return end
+    local pos = deck_pos[player]
+    pos[2] = pos[2] + yoffset
+    local rot = discard_pos['rotation'][player]
+    rot[3] = 180
+    obj.setRotationSmooth(rot, false, false)
+    obj.setPositionSmooth(pos, false, false)
+end
+
 function BuyCard(obj_guid, player, amount)
     if obj_guid == nil or status[player]['bought'][obj_guid] != nil then return end
     status[player]['spent'] = status[player]['spent'] + amount
@@ -594,7 +629,7 @@ text_obj = {}
 
 discard_pos = {
     position = {
-        White = {27.7580966949463, 2.0415952205658, -22.364372253418},
+        White = {27.7580966949463,2.0415952205658,-22.364372253418},
         Blue = {27.5576362609863,2.02753210067749,22.1673812866211},
         Red = {-27.6587677001953,2.03530836105347,-22.2438640594482},
         Green = {-27.6822872161865,2.02753210067749,22.6238460540771}
@@ -605,6 +640,13 @@ discard_pos = {
         Red = {0, 180, 0},
         Green = {0, 0, 0}
     }
+}
+
+deck_pos = {
+    White = {31.7580966949463,2.0415952205658,-22.364372253418},
+    Blue = {31.5576362609863,2.02753210067749,22.1673812866211},
+    Red = {-31.6587677001953,2.03530836105347,-22.2438640594482},
+    Green = {-31.6822872161865,2.02753210067749,22.6238460540771}
 }
 -- STATUS --
 
