@@ -67,13 +67,14 @@ end
 function MoveAllToDiscards(obj)
     local player = authority_player_from_guids[obj.getGUID()]
     print_d(player..' tidy up button pressed')
-    -- Reset them
+    -- Reset them first
     ResetPlayer(player, false)
-    -- Now move all their non-base, non-scrapped cards in play
+    -- Now unplay and move all their non-base, non-scrapped cards in play
     local offset=0
     for card_guid, j in pairs(in_play[player]) do
         if j['scrapped'] == nil and card[j['played']]['base'] == nil then
-            MoveToDiscard(getObjectFromGUID(card_guid), player, offset)
+            UnPlayCardGuid(card_guid, player, remove)
+            MoveToDiscard(card_guid, player, offset)
             offset = offset + 0.1
         end
     end
@@ -170,14 +171,14 @@ function onObjectDropped(player_color, dropped_object)
     local cname = dropped_object.getName()
     if card[cname] == nil then return end
 
-    print_d('Card dropped')
+    print(cname..' card dropped')
     local cowner = dropped_object.getVar('player')
     local obj_guid = dropped_object.getGUID()
 
     -- See if we're being dropped on top of another card in play by this player
     for guid, tbl in pairs(in_play[player_color]) do
         local ocard = getObjectFromGUID(guid)
-        if guid != obj_guid and areCardsinSameVicinity(ocard, dropped_object) then
+        if ocard != nil and guid != obj_guid and areCardsinSameVicinity(ocard, dropped_object) then
             RunAnyCardRoutines(ocard, dropped_object)
         end
     end
@@ -189,25 +190,36 @@ function onObjectDropped(player_color, dropped_object)
     local in_play_zone = play_zones_from_guid[zone_guid]
     local in_scrap_zone = scrap_zones_from_guid[zone_guid]
     local in_buy_zone = buy_zones_from_guid[zone_guid]
+    local in_explorer_zone = zone_guid == scrap_zone_guids['explorer']
 
     -- Unplay played cards before removing the owner!
-    if cowner != nil and in_play[cowner][obj_guid] != nil then
-        if in_play_zone == nil and in_scrap_zone == nil then
-            if in_play[cowner][obj_guid]['scrapped'] != nil then
-                print_d('Replaying Scrapped Card (so we can unplay it cleanly)')
-                RePlayScrappedCard(obj_guid, cowner)
+    if cowner != nil then
+        if in_play[cowner][obj_guid] != nil then
+            if in_play_zone == nil and in_scrap_zone == nil then
+                if in_play[cowner][obj_guid]['scrapped'] != nil then
+                    print_d('Replaying Scrapped Card (so we can unplay it cleanly)')
+                    RePlayScrappedCard(obj_guid, cowner)
+                end
+                print_d('Unplaying Card')
+                UnPlayCardGuid(obj_guid, cowner, remove)
+                UpdateStatusText(player_color)
             end
-            print_d('Unplaying Card')
-            UnPlayCardGuid(obj_guid, cowner, remove)
-            UpdateStatusText(player_color)
-        end
 
-        if in_scrap_zone != nil then
-            print_d('Card dropped in scrap/explorer zone')
-            -- We only process cards that were in play
-            if in_play[cowner][obj_guid]['scrapped'] == nil then
-                print_d('Card was in play and not already scrapped; processing')
-                ScrapCard(obj_guid, cowner)
+            if in_scrap_zone != nil then
+                print_d('Card dropped in scrap/explorer zone')
+                -- We only process cards that were in play
+                if in_play[cowner][obj_guid]['scrapped'] == nil then
+                    print_d('Card was in play and not already scrapped; processing')
+                    ScrapCard(obj_guid, cowner)
+                    UpdateStatusText(player_color)
+                end
+            end
+        else
+            -- If we have an owner, but we're not in play
+            if (in_disown_zone != nil or in_explorer_zone != nil) and status[cowner]['bought'][obj_guid] != nil then
+                -- And we're dropped back on the trade row or explorer zone and we were bought
+                print('I just unbought something')
+                UnBuyCard(obj_guid, cowner)
                 UpdateStatusText(player_color)
             end
         end
@@ -231,12 +243,12 @@ function onObjectDropped(player_color, dropped_object)
         end
 
         if in_buy_zone != nil then
-            print_d('Dropped in buy zone!')
+            print(cname..' dropped in buy zone!')
             -- If the card was bought (this turn) then it is moved to the
             -- discards. If not we treat the buy zone like the rest of the
             -- play zone
             if status[player_color]['bought'][obj_guid] != nil then
-                MoveToDiscard(dropped_object, player_color, 0)
+                MoveToDiscard(obj_guid, player_color, 0)
             else--
                 in_play_zone = true
             end
@@ -262,6 +274,9 @@ function onObjectDropped(player_color, dropped_object)
             end
         end
     end
+    --print_r2(faction_counts[turn])
+    --print_r2(in_play[turn])
+    --print_r2(status[turn])
     --print_r(faction_counts)
     --RecalculatePools()
 end
@@ -459,17 +474,17 @@ end
 
 function ChangeTurn(player)
     -- Don't do any resetting if there was no previous player (i.e. start of the game)
-    print_r(faction_counts)
     if player == turn then return end
     print_d('Changing turn to '..player)
-    print_r(in_play)
     if turn != nil and in_play[turn] != nil then
         -- Reset the current player
         ResetPlayer(turn, true)
     end
     -- Finally set the turn to the new player
     turn = player
-    print_r(faction_counts)
+    print_r2(faction_counts[turn])
+    print_r2(in_play[turn])
+    print_r2(status[turn])
 end
 
 function UpdateStatusText(player)
@@ -486,12 +501,14 @@ function UpdateStatusText(player)
     text_obj[player].TextTool.setValue(text)
 end
 
-function MoveToDiscard(obj, player, yoffset)
+function MoveToDiscard(obj_guid, player, yoffset)
+    local obj = getObjectFromGUID(obj_guid)
     if obj == nil or player != obj.getVar('player') or yoffset == nil then return end
-    local pos = discard_pos['position'][player]
+    local pos = table.shallow_copy(discard_pos['position'][player])
     pos[2] = pos[2] + yoffset
-    obj.setRotationSmooth(discard_pos['rotation'][player], false, false)
-    obj.setPositionSmooth(pos, false, false)
+    obj.setRotationSmooth(discard_pos['rotation'][player], false, true)
+    obj.setPositionSmooth(pos, false, true)
+    print(obj.getName()..' moved to discard')
 end
 
 function MoveToDeck(obj, player, yoffset)
@@ -536,6 +553,14 @@ function FindZoneObjectIsIn(object_guid)
         end
     end
     return nil
+end
+
+function table.shallow_copy(t)
+  local t2 = {}
+  for k,v in pairs(t) do
+    t2[k] = v
+  end
+  return t2
 end
 
 function print_d ( t )
@@ -586,7 +611,7 @@ play_zone_guids={'3d0725', '7f8b9c', 'cbfb3a', 'bb862c'}
 play_zones_from_guid = {}
 
 disown_zone_guids={
-    trade='7a543d'
+    trade='ee5539'
 }
 disown_zones_from_guid = {}
 
