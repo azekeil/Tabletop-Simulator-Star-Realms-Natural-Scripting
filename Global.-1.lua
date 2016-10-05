@@ -102,9 +102,9 @@ function RunAnyCardRoutines(receiving_obj, dropped_object)
 
     action_r = {
         ['acquire_ship_for_free_to_top_of_deck'] = function (x)
-            print_d('acquire_ship_for_free_to_top_of_deck ')
-            print_d(cowner)
-            print_r(status[cowner])
+            print('acquire_ship_for_free_to_top_of_deck ')
+            print(cowner)
+            print_r2(status[cowner])
             if status[cowner]['bought'][dguid] != nil then
                 status[cowner]['spent'] = status[cowner]['spent'] - status[cowner]['bought'][dguid]
                 status[cowner]['bought'][dguid] = 0
@@ -495,6 +495,9 @@ function MoveToDiscard(obj, player, yoffset)
 end
 
 function MoveToDeck(obj, player, yoffset)
+    print(obj)
+    print(player)
+    print(yoffset)
     if obj == nil or player != obj.getVar('player') or yoffset == nil then return end
     local pos = deck_pos[player]
     pos[2] = pos[2] + yoffset
