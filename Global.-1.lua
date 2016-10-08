@@ -509,7 +509,6 @@ function MoveToDiscard(obj_guid, player, yoffset)
     obj.setRotationSmooth(discard_pos['rotation'][player], false, false)
     obj.setPositionSmooth(pos, false, false)
     print(obj.getName()..' moved to discard')
-    return 1
 end
 
 function MoveToDeck(obj, player, yoffset)
