@@ -144,7 +144,7 @@ end
 This routine is just to manage buying things from the trade row
 --]]
 function onObjectPickedUp(player_color, picked_up_object)
-    -- We only care if it's a card - cards always have a name
+    -- We only care if it's a card - cards always have a recognised name
     local cname = picked_up_object.getName()
     if card[cname] == nil then return end
 
@@ -171,7 +171,7 @@ function onObjectDropped(player_color, dropped_object)
     local cname = dropped_object.getName()
     if card[cname] == nil then return end
 
-    print(cname..' card dropped')
+    print_d(cname..' card dropped')
     local cowner = dropped_object.getVar('player')
     local obj_guid = dropped_object.getGUID()
 
@@ -192,17 +192,25 @@ function onObjectDropped(player_color, dropped_object)
     local in_buy_zone = buy_zones_from_guid[zone_guid]
     local in_explorer_zone = zone_guid == scrap_zone_guids['explorer']
 
+    if status[player_color]['bought'][obj_guid] != nil and in_play[player_color][obj_guid] == nil
+            and (in_disown_zone != nil or in_scrap_zone != nil) then
+        -- If we were bought and not played and dropped in the trade, exporer or scrap zone, unbuy the card
+        print_d(player_color..' just unbought something')
+        UnBuyCard(obj_guid, player_color)
+        UpdateStatusText(player_color)
+    end
+
     -- Unplay played cards before removing the owner!
     if cowner != nil then
         if in_play[cowner][obj_guid] != nil then
-            if in_play_zone == nil and in_scrap_zone == nil then
+            if in_play_zone == nil and in_buy_zone == nil and in_scrap_zone == nil then
                 if in_play[cowner][obj_guid]['scrapped'] != nil then
                     print_d('Replaying Scrapped Card (so we can unplay it cleanly)')
                     RePlayScrappedCard(obj_guid, cowner)
                 end
                 print_d('Unplaying Card')
                 UnPlayCardGuid(obj_guid, cowner, remove)
-                UpdateStatusText(player_color)
+                UpdateStatusText(cowner)
             end
 
             if in_scrap_zone != nil then
@@ -211,19 +219,13 @@ function onObjectDropped(player_color, dropped_object)
                 if in_play[cowner][obj_guid]['scrapped'] == nil then
                     print_d('Card was in play and not already scrapped; processing')
                     ScrapCard(obj_guid, cowner)
-                    UpdateStatusText(player_color)
+                    UpdateStatusText(cowner)
                 end
-            end
-        else
-            -- If we have an owner, but we're not in play
-            if (in_disown_zone != nil or in_explorer_zone != nil) and status[cowner]['bought'][obj_guid] != nil then
-                -- And we're dropped back on the trade row or explorer zone and we were bought
-                print('I just unbought something')
-                UnBuyCard(obj_guid, cowner)
-                UpdateStatusText(player_color)
             end
         end
     end
+
+
 
     -- Set hard ownership in player or disown zones, or soft ownership elsewhere
     if in_player_owned_zone != nil then
@@ -243,11 +245,10 @@ function onObjectDropped(player_color, dropped_object)
         end
 
         if in_buy_zone != nil then
-            print(cname..' dropped in buy zone!')
-            -- If the card was bought (this turn) then it is moved to the
-            -- discards. If not we treat the buy zone like the rest of the
-            -- play zone
-            if status[player_color]['bought'][obj_guid] != nil then
+            print_d(cname..' dropped in buy zone!')
+            -- If the card was bought (this turn) and not played then it is moved to the
+            -- discards. If not we treat the buy zone like the rest of the play zone
+            if status[player_color]['bought'][obj_guid] != nil and in_play[player_color][obj_guid] == nil then
                 MoveToDiscard(obj_guid, player_color, 0)
             else--
                 in_play_zone = true
@@ -275,10 +276,9 @@ function onObjectDropped(player_color, dropped_object)
         end
     end
     --print_r2(faction_counts[turn])
-    --print_r2(in_play[turn])
-    --print_r2(status[turn])
-    --print_r(faction_counts)
-    --RecalculatePools()
+    print_r(in_play[player_color])
+    print_r(status[player_color]['spent'])
+    print_r(status[player_color]['bought'])
 end
 
 --[[
@@ -482,9 +482,9 @@ function ChangeTurn(player)
     end
     -- Finally set the turn to the new player
     turn = player
-    print_r2(faction_counts[turn])
-    print_r2(in_play[turn])
-    print_r2(status[turn])
+    print_r(faction_counts[turn])
+    print_r(in_play[turn])
+    print_r(status[turn])
 end
 
 function UpdateStatusText(player)
@@ -611,7 +611,7 @@ play_zone_guids={'3d0725', '7f8b9c', 'cbfb3a', 'bb862c'}
 play_zones_from_guid = {}
 
 disown_zone_guids={
-    trade='ee5539'
+    trade='59c498'
 }
 disown_zones_from_guid = {}
 
