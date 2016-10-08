@@ -194,7 +194,7 @@ function onObjectDropped(player_color, dropped_object)
 
     if status[player_color]['bought'][obj_guid] != nil and in_play[player_color][obj_guid] == nil
             and (in_disown_zone != nil or in_scrap_zone != nil) then
-        -- If we were bought and not played and dropped in the trade, exporer or scrap zone, unbuy the card
+        -- If we were bought and not played and dropped in the trade, explorer or scrap zone, unbuy the card
         print_d(player_color..' just unbought something')
         UnBuyCard(obj_guid, player_color)
         UpdateStatusText(player_color)
@@ -271,8 +271,8 @@ function onObjectDropped(player_color, dropped_object)
                 ChangeTurn(player_color)
                 -- Play after setting owner!
                 PlayCard(dropped_object)
-                UpdateStatusText(player_color)
             end
+            UpdateStatusText(player_color)
         end
     end
     --print_r2(faction_counts[turn])
