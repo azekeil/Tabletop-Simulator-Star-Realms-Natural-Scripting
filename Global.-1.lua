@@ -506,9 +506,10 @@ function MoveToDiscard(obj_guid, player, yoffset)
     if obj == nil or player != obj.getVar('player') or yoffset == nil then return end
     local pos = table.shallow_copy(discard_pos['position'][player])
     pos[2] = pos[2] + yoffset
-    obj.setRotationSmooth(discard_pos['rotation'][player], false, true)
-    obj.setPositionSmooth(pos, false, true)
+    obj.setRotationSmooth(discard_pos['rotation'][player], false, false)
+    obj.setPositionSmooth(pos, false, false)
     print(obj.getName()..' moved to discard')
+    return 1
 end
 
 function MoveToDeck(obj, player, yoffset)
