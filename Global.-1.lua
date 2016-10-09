@@ -103,9 +103,9 @@ function RunAnyCardRoutines(receiving_obj, dropped_object)
 
     action_r = {
         ['acquire_ship_for_free_to_top_of_deck'] = function (x)
-            print('acquire_ship_for_free_to_top_of_deck ')
-            print(cowner)
-            print_r2(status[cowner])
+            print_d('acquire_ship_for_free_to_top_of_deck ')
+            print_d(cowner)
+            print_r(status[cowner])
             if status[cowner]['bought'][dguid] != nil then
                 status[cowner]['spent'] = status[cowner]['spent'] - status[cowner]['bought'][dguid]
                 status[cowner]['bought'][dguid] = 0
@@ -114,12 +114,20 @@ function RunAnyCardRoutines(receiving_obj, dropped_object)
             end
         end,
         ['next_ship_to_top_of_deck'] = function (x)
-            print('next_ship_to_top_of_deck ')
+            print_d('next_ship_to_top_of_deck ')
+            if status[cowner]['bought'][dguid] != nil then
+                MoveToDeck(dropped_object, cowner, 0)
+            end
         end
     }
 
     action_d = {
-        ['clone_ship'] = function (x) print('clone_ship ') end
+        ['clone_ship'] = function (x)
+            print_d('clone_ship '..rname)
+            -- Try to unplay it first just in case it's been moved
+            UnPlayCardGuid(dguid, cowner, remove)
+            PlayCard(dguid, dname, cowner, rname)
+        end
     }
 
     for i,f in pairs(action_r) do
@@ -141,15 +149,25 @@ function RunAnyCardRoutines(receiving_obj, dropped_object)
 
 end
 --[[
-This routine is just to manage buying things from the trade row
+This routine is for:
+1) Managing buying things from the trade row
+2) Handling some special card events like clones
 --]]
 function onObjectPickedUp(player_color, picked_up_object)
     -- We only care if it's a card - cards always have a recognised name
     local cname = picked_up_object.getName()
     if card[cname] == nil then return end
 
-    -- We also only care if it's a card in the trade or explorer zones
     local obj_guid = picked_up_object.getGUID()
+
+    -- For cloned cards, unplay them here on pickup
+    if in_play[player_color][obj_guid] != nil then
+        if in_play[player_color][obj_guid]['clone_name'] != nil then
+            UnPlayCardGuid(obj_guid, player_color, remove)
+        end
+    end
+
+    -- For regular cards, we also only care if it's a card in the trade or explorer zones
     local zone_guid = FindZoneObjectIsIn(obj_guid)
     if disown_zones_from_guid[zone_guid] != 'trade' and scrap_zones_from_guid[zone_guid] != 'explorer' then return end
 
@@ -225,8 +243,6 @@ function onObjectDropped(player_color, dropped_object)
         end
     end
 
-
-
     -- Set hard ownership in player or disown zones, or soft ownership elsewhere
     if in_player_owned_zone != nil then
         print_d('Setting owner of ' .. obj_guid .. ' to ' .. in_player_owned_zone)
@@ -257,6 +273,7 @@ function onObjectDropped(player_color, dropped_object)
         -- Put this at the end of the if/else to make the other zones take precedence
         -- because cards physically overlap zones :(
         if in_play_zone then
+            print_d('  in play zone')
             -- If the card was previously scrapped, undo that instead of playing it
             if cowner != nil and in_play[cowner][obj_guid] != nil then
                 if in_play[cowner][obj_guid]['scrapped'] != nil then
@@ -270,7 +287,7 @@ function onObjectDropped(player_color, dropped_object)
                 -- it also changing the turn on us!
                 ChangeTurn(player_color)
                 -- Play after setting owner!
-                PlayCard(dropped_object)
+                PlayCard(obj_guid, cname, player_color, nil)
             end
             UpdateStatusText(player_color)
         end
@@ -306,15 +323,17 @@ function onObjectDestroyed(dying_object)
     end
 end
 
-function PlayCard(obj)
-    local obj_guid = obj.getGUID()
-    local cname = obj.getName()
-    local cowner = obj.getVar('player')
+function PlayCard(obj_guid, cname, cowner, clone_name)
     if card[cname] == nil or cowner == nil then return end
     print_d('Playing ' .. cname .. ' for ' .. cowner)
+    if clone_name != nil then print_d('  as a clone of '..clone_name) end
     in_play[cowner][obj_guid] = { ['played'] = cname }
     -- Process basic effects
     ProcessCardTable(card[cname], cowner, add, add)
+    if clone_name != nil then
+        ProcessCardTable(card[clone_name], cowner, add, add)
+        in_play[cowner][obj_guid]['clone_name'] = clone_name
+    end
     -- check for ally triggers
     for i, faction in ipairs(factions) do
         if faction_counts[cowner][faction] > 1 then
@@ -323,41 +342,52 @@ function PlayCard(obj)
             --print_r(in_play)
             for other_guid, j in pairs(in_play[cowner]) do
                 local oname = j['played']
-                if not j[faction .. '_ally_triggered'] then
+                local ocname = j['clone_name']
+                if not j[faction..'_ally_triggered'] then
                     print_d('Processing ' .. oname)
-                    ProcessCardTable(card[oname][faction .. '_ally'], cowner, add, add)
-                    j[faction .. '_ally_triggered'] = true
+                    ProcessCardTable(card[oname][faction..'_ally'], cowner, add, add)
+                    if ocname != nil then ProcessCardTable(card[ocname][faction..'_ally'], cowner, add, add) end
+                    j[faction..'_ally_triggered'] = true
                 end
             end
         end
     end
-    print_r(in_play)
+    print_r(in_play[cowner])
+    print_r(faction_counts[cowner])
 end
 
 -- This function is called when a player removes a card from play
 -- Either because they played it by accident or scrapped cards at end of turn
 function UnPlayCardGuid(obj_guid, cowner, faction_change)
     if cowner == nil or obj_guid == nil then return end
-    if in_play[cowner][obj_guid] != nil then
-        local cname = in_play[cowner][obj_guid]['played']
+    local ctbl = in_play[cowner][obj_guid]
+    if ctbl != nil then
+        local cname = ctbl['played']
+        local clone_name = ctbl['clone_name']
         print_d('UnPlaying '..cname..' for '..cowner)
+        if clone_name != nil then print_d('  including clone of '..clone_name) end
         -- Process basic effects
         ProcessCardTable(card[cname], cowner, remove, faction_change)
+        if clone_name != nil then ProcessCardTable(card[clone_name], cowner, remove, faction_change) end
+
         -- check for ally triggers
         for i, faction in ipairs(factions) do
-            local faction_ally_triggered = faction .. '_ally_triggered'
+            local faction_ally_triggered = faction..'_ally_triggered'
             -- Also remove each ally ability for this card if it was triggered
-            if in_play[cowner][obj_guid][faction_ally_triggered] then
+            if ctbl[faction_ally_triggered] then
                 ProcessCardTable(card[cname][faction .. '_ally'], cowner, remove, faction_change)
+                if clone_name != nil then ProcessCardTable(card[clone_name][faction..'_ally'], cowner, remove, faction_change) end
                 -- Possibly a bit redundant?
-                in_play[cowner][obj_guid][faction .. '_ally_triggered'] = nil
+                ctbl[faction .. '_ally_triggered'] = nil
             end
             if faction_counts[cowner][faction] < 2 then
                 -- untrigger all ally abilities on all cards that don't already have it
                 for other_guid, j in pairs(in_play[cowner]) do
                     local oname = j['played']
+                    local ocname = j['clone_name']
                     if j[faction_ally_triggered] and j[faction..'_ally_permanently_triggered'] == nil then
-                        ProcessCardTable(card[oname][faction .. '_ally'], cowner, remove, faction_change)
+                        ProcessCardTable(card[oname][faction..'_ally'], cowner, remove, faction_change)
+                        if ocname != nil then ProcessCardTable(card[ocname][faction..'_ally'], cowner, remove, faction_change) end
                         j[faction_ally_triggered] = nil
                     end
                 end
@@ -365,6 +395,8 @@ function UnPlayCardGuid(obj_guid, cowner, faction_change)
         end
         in_play[cowner][obj_guid] = nil
     end
+    print_r(in_play[cowner])
+    print_r(faction_counts[cowner])
 end
 
 function ScrapCard(obj_guid, cowner)
@@ -508,13 +540,10 @@ function MoveToDiscard(obj_guid, player, yoffset)
     pos[2] = pos[2] + yoffset
     obj.setRotationSmooth(discard_pos['rotation'][player], false, false)
     obj.setPositionSmooth(pos, false, false)
-    print(obj.getName()..' moved to discard')
+    print_d(obj.getName()..' moved to discard')
 end
 
 function MoveToDeck(obj, player, yoffset)
-    print(obj)
-    print(player)
-    print(yoffset)
     if obj == nil or player != obj.getVar('player') or yoffset == nil then return end
     local pos = deck_pos[player]
     pos[2] = pos[2] + yoffset
